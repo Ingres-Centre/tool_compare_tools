@@ -104,8 +104,21 @@ impl<'a> LibraryHolder<'a> {
                         deps_str
                             .split(',')
                             .map(|x| {
-                                let (name, path) = x.split_once('>').unwrap();
+                                let (name, path) = x.split_once('>').unwrap_or((x, x));
                                 DefinedDependency::new(name, path)
+                            })
+                            .filter(|dep| {
+                                ![
+                                    "libhidlbase.so",
+                                    "liblog.so",
+                                    "libutils.so",
+                                    "libcutils.so",
+                                    "libc++.so",
+                                    "libc.so",
+                                    "libm.so",
+                                    "libdl.so",
+                                ]
+                                .contains(&dep.name)
                             })
                             .collect()
                     } else {
@@ -128,7 +141,7 @@ impl<'a> LibraryHolder<'a> {
             let mut found_deps = Vec::new();
 
             for dep in &lib.defined_deps {
-                let Some(dep_lib) = search_library(&libs, dep.path) else {
+                let Some(dep_lib) = search_library(&libs, dep.path, Some(lib.is_32_bit)) else {
                     log::warn!("Failed to get {} dependency of {}!", dep.name, lib.name);
                     continue;
                 };
@@ -156,7 +169,7 @@ impl<'a> LibraryHolder<'a> {
         let mut required_list: HashMap<&'a str, LibraryRef<'a>> = HashMap::new();
 
         for lib_name in search {
-            let Some(lib) = search_library(&self.libs, lib_name.as_ref()) else {
+            let Some(lib) = search_library(&self.libs, lib_name.as_ref(), None) else {
                 continue;
             };
 
